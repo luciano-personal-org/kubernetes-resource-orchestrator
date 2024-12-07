@@ -3,4 +3,5 @@
 ## Commands
 Before installing kro with helm, you need to login into the public's aws container registry.
 
+`shell`
 aws ecr-public get-login-password --region us-east-1 | docker login --username AWS --password-stdin public.ecr.aws
