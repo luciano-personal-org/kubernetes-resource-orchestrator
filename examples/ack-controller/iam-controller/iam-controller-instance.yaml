@@ -1,0 +1,21 @@
+apiVersion: kro.run/v1alpha1
+kind: IAMController
+metadata:
+  name: my-kro-iam-controller
+  namespace: default
+spec:
+  name: ack-iam-controller
+  namespace: default
+  values: 
+    aws: {}
+    deployment: {}
+    image:
+      resources:
+        requests: {}
+        limits: {}
+    log:
+      enabled: true
+      level: debug
+    aws: {}
+    serviceAccount:
+      roleArn: arn:aws:iam::399481058530:role/another-iam-controller

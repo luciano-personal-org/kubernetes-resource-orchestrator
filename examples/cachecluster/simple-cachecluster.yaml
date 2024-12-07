@@ -1,0 +1,25 @@
+apiVersion: kro.run/v1alpha1
+kind: ResourceGroup
+metadata:
+  name: valkey.kro.run
+spec:
+  schema:
+    apiVersion: v1alpha1
+    kind: Valkey
+    spec:
+      name: string
+      subnetIDs: "[]string"
+    status:
+      csgARN: ${cacheSubnetGroup.status.ackResourceMetadata.arn}
+      subnets: ${cacheSubnetGroup.status.subnets}
+  resources:
+    - id: cacheSubnetGroup
+      template:
+        apiVersion: elasticache.services.k8s.aws/v1alpha1
+        kind: CacheSubnetGroup
+        metadata:
+          name: ${schema.spec.name}-valkey-subnet-group
+        spec:
+          cacheSubnetGroupDescription: "Valkey ElastiCache subnet group"
+          cacheSubnetGroupName: ${schema.spec.name}-valkey-subnet-group
+          subnetIDs: ${schema.spec.subnetIDs}

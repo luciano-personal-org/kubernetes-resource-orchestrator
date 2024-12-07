@@ -1,0 +1,121 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "kro.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: {{ include "kro.name" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
+    k8s-app: {{ include "kro.name" . }}
+    helm.sh/chart: {{ include "kro.chart" . }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "kro.name" . }}
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  template:
+    metadata:
+    {{- if .Values.deployment.annotations }}
+      annotations:
+      {{- range $key, $value := .Values.deployment.annotations }}
+        {{ $key }}: {{ $value | quote }}
+      {{- end }}
+    {{- end }}
+      labels:
+        app.kubernetes.io/name: {{ include "kro.name" . }}
+        app.kubernetes.io/instance: {{ .Release.Name }}
+        app.kubernetes.io/managed-by: Helm
+        k8s-app: {{ include "kro.name" . }}
+      {{- range $key, $value := .Values.deployment.labels }}
+        {{ $key }}: {{ $value | quote }}
+      {{- end }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "kro.serviceAccountName" . }}
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+      terminationGracePeriodSeconds: 10
+      nodeSelector: {{ toYaml .Values.deployment.nodeSelector | nindent 8 }}
+      {{ if .Values.deployment.tolerations -}}
+      tolerations: {{ toYaml .Values.deployment.tolerations | nindent 8 }}
+      {{ end -}}
+      {{ if .Values.deployment.affinity -}}
+      affinity: {{ toYaml .Values.deployment.affinity | nindent 8 }}
+      {{ end -}}
+      {{ if .Values.deployment.priorityClassName -}}
+      priorityClassName: {{ .Values.deployment.priorityClassName }}
+      {{ end -}}
+      hostIPC: false
+      hostPID: false
+      hostNetwork: {{ .Values.deployment.hostNetwork }}
+      dnsPolicy: {{ .Values.deployment.dnsPolicy }}
+      {{- if .Values.deployment.extraVolumes }}
+      volumes:
+        {{ toYaml .Values.deployment.extraVolumes | indent 8}}
+      {{- end }}
+      containers:
+        - name: {{ .Chart.Name }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+          - name: metricsport
+            containerPort: {{ .Values.deployment.containerPort }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          {{- if .Values.deployment.extraVolumeMounts -}}
+          volumeMounts:
+            {{ toYaml .Values.deployment.extraVolumeMounts | nindent 10 }}
+          {{- end }}
+          securityContext:
+            runAsUser: 1000
+            runAsNonRoot: true
+            allowPrivilegeEscalation: false
+            privileged: false
+            capabilities:
+              drop:
+                - ALL
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8079
+            initialDelaySeconds: 15
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: 8079
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          env:
+            - name: KRO_ALLOW_CRD_DELETION
+              value: {{ .Values.config.allowCRDDeletion | quote }}
+            - name: KRO_METRICS_BIND_ADDRESS
+              value: {{ .Values.config.metricsBindAddress | quote }}
+            - name: KRO_HEALTH_PROBE_BIND_ADDRESS
+              value: {{ .Values.config.healthProbeBindAddress | quote }}
+            - name: KRO_RESOURCE_GROUP_CONCURRENT_RECONCILES
+              value: {{ .Values.config.resourceGroupConcurrentReconciles | quote }}
+            - name: KRO_DYNAMIC_CONTROLLER_CONCURRENT_RECONCILES
+              value: {{ .Values.config.dynamicControllerConcurrentReconciles | quote }}
+            - name: KRO_LOG_LEVEL
+              value: {{ .Values.config.logLevel | quote }}
+          args:
+            - --allow-crd-deletion
+            - "$(KRO_ALLOW_CRD_DELETION)"
+            - --metrics-bind-address
+            - "$(KRO_METRICS_BIND_ADDRESS)"
+            - --health-probe-bind-address
+            - "$(KRO_HEALTH_PROBE_BIND_ADDRESS)"
+            - --resource-group-concurrent-reconciles
+            - "$(KRO_RESOURCE_GROUP_CONCURRENT_RECONCILES)"
+            - --dynamic-controller-concurrent-reconciles
+            - "$(KRO_DYNAMIC_CONTROLLER_CONCURRENT_RECONCILES)"
+            - --log-level
+            - "$(KRO_LOG_LEVEL)"
